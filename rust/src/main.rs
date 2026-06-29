@@ -43,23 +43,40 @@ fn main() -> bitcoincore_rpc::Result<()> {
 
     // Get blockchain info
     let blockchain_info = rpc.get_blockchain_info()?;
-    println!("Blockchain Info: {:?}", blockchain_info);
+    // println!("Blockchain Info: {:?}", blockchain_info);
+    println!("Connected to Bitcoin Core. Chain: {}", blockchain_info.chain);
 
     // Create/Load the wallets, named 'Miner' and 'Trader'. Have logic to optionally create/load them if they do not exist or not loaded already.
+        let miner_wallet = match rpc.create_wallet("Miner", None, None, None, None)
+        {
+            Ok(_)=> {
+                println!("Created Miner wallet");
+                Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()))?
+            }
+            Err(_) => {
+                //wallet exists, try to load it
+                let _ = rpc.load_wallet("Miner");
+                println!("Loaded existing Miner wallet");
+                Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()))?
+            }
+        };
 
-    // Generate spendable balances in the Miner wallet. How many blocks needs to be mined?
+        //load the Trader wallet
 
-    // Load Trader wallet and generate a new address
+        let trader_wallet = match rpc.create_wallet("Trader", None, None,None,None){
+            Ok(_) =>{
+                println!("Created Trader wallet");
+                Client::new(&format!("{}/wallet/Trader", RPC_URL),Auth::UserPass(RPC_USER.to_owned(), RPC_PASS.to_owned()))?
+            }
+            Err(_)=>{
+                //wallet exists, try to load it
+                let_ = rpc.load_wallet("Trader");
+                println!("Loaded existing Trader wallet");
+                Client::new(&format!("{}/wallet/Trader",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()))?
+            }
+        };
 
-    // Send 20 BTC from Miner to Trader
-
-    // Check transaction in mempool
-
-    // Mine 1 block to confirm the transaction
-
-    // Extract all required transaction details
-
-    // Write the data to ../out.txt in the specified format given in readme.md
+    println!("Both wallets ready");
 
     Ok(())
 }
