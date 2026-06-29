@@ -70,13 +70,30 @@ fn main() -> bitcoincore_rpc::Result<()> {
             }
             Err(_)=>{
                 //wallet exists, try to load it
-                let_ = rpc.load_wallet("Trader");
+                let _ = rpc.load_wallet("Trader");
                 println!("Loaded existing Trader wallet");
                 Client::new(&format!("{}/wallet/Trader",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()))?
             }
         };
 
     println!("Both wallets ready");
+
+    //Generate new address in Miner wallet with label "Mining Reward"
+
+    let mining_address = miner_wallet.get_new_address(Some("Mining Reward"), None)?;
+    println!("Mining address:{}",mining_address);
+
+    //Mine 101 blocks to the mining address
+    //Blocks rewards in bitcoin require 100 confirmations(Maturity period)
+    //before they become spendable
+    println!("Mining 101 blocks...");
+    let _blocks = miner_wallet.generate_to_address(101, &mining_address)?;
+    println!("Mined 101 blocks");
+    
+    //Get and print Miner wallet balance
+
+    let balance = miner_wallet.get_balance(None, None)?;
+    println!("Miner wallet balance:{}BTC", balance.to_btc());
 
     Ok(())
 }
