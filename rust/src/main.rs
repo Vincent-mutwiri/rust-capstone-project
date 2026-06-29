@@ -106,6 +106,19 @@ println!("Trader receiving address:{}", trader_address);
 let txid = send(&miner_wallet, &trader_address.to_string(), 20.0)?;
 
 
-println!("Transaction sent! TxID: {}", txi");
+println!("Transaction sent! TxID: {}", txid);
+
+//Query mempool and confirm transaction
+
+//Fetch unconfirmed transactions
+
+println!("\nFetching transaction from mempool...");
+let mempool_entry: serde_json::Value = miner_wallet.call("getmempoolentry", &[json!(txid)])?;
+println!("Mempool entry: {:?}", mempool_entry);
+//Mine 1 block to confirm the transaction
+println!("\nMining 1 block to confirm transaction...");
+let _confirm_blocks = miner_wallet.generate_to_address(1, &mining_address)?;
+println!("Transaction confirmed");
+
     Ok(())
 }
