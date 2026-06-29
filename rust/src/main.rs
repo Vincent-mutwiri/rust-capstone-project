@@ -15,9 +15,9 @@ const RPC_PASS: &str = "password";
 // You can use calls not provided in RPC lib API using the generic `call` function.
 // An example of using the `send` RPC call, which doesn't have exposed API.
 // You can also use serde_json `Deserialize` derivation to capture the returned json result.
-fn send(rpc: &Client, addr: &str) -> bitcoincore_rpc::Result<String> {
+fn send(rpc: &Client, addr: &str, amount:f64) -> bitcoincore_rpc::Result<String> {
     let args = [
-        json!([{addr : 100 }]), // recipient address
+        json!([{addr : amount }]), // recipient address
         json!(null),            // conf target
         json!(null),            // estimate mode
         json!(null),            // fee rate in sats/vb
@@ -95,5 +95,17 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let balance = miner_wallet.get_balance(None, None)?;
     println!("Miner wallet balance:{}BTC", balance.to_btc());
 
+//Create a trader address and send 20 BTC from miner to Trader
+//Generate new address in Trader wallet with label "Received"
+
+let trader_address = trader_wallet.get_new_address(Some("Received"),None)?;
+println!("Trader receiving address:{}", trader_address);
+
+//Send 20 BTC from Miner to Trader
+
+let txid = send(&miner_wallet, &trader_address.to_string(), 20.0)?;
+
+
+println!("Transaction sent! TxID: {}", txi");
     Ok(())
 }
