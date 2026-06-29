@@ -120,5 +120,65 @@ println!("\nMining 1 block to confirm transaction...");
 let _confirm_blocks = miner_wallet.generate_to_address(1, &mining_address)?;
 println!("Transaction confirmed");
 
+ // Extract transaction details and write to out.txt
+    let tx_details: serde_json::Value = miner_wallet.call("gettransaction", &[json!(txid), json!(null), json!(true)])?;
+    
+ // Extract basic info
+    let decoded = &tx_details["decoded"];
+    let block_hash = tx_details["blockhash"].as_str().unwrap();
+    let block_height = tx_details["blockheight"].as_u64().unwrap();
+    let fee = tx_details["fee"].as_f64().unwrap().abs();
+    
+    // Extract input details (vin)
+    let vin = &decoded["vin"][0];
+    let input_txid = vin["txid"].as_str().unwrap();
+    let input_vout = vin["vout"].as_u64().unwrap();
+    
+    
+// Get the previous transaction to find input address and amount
+    let prev_tx: serde_json::Value = miner_wallet.call("gettransaction", &[json!(input_txid), json!(null), json!(true)])?;
+    let prev_vout = &prev_tx["decoded"]["vout"][input_vout as usize];
+    let miner_input_address = prev_vout["scriptPubKey"]["address"].as_str().unwrap();
+    let miner_input_amount = prev_vout["value"].as_f64().unwrap();
+    
+    // Extract output details (vout)
+    let vout = &decoded["vout"];
+    
+    // Identify trader output vs change output by matching addresses
+    let mut trader_output_address = "";
+    let mut trader_output_amount = 0.0;
+    let mut miner_change_address = "";
+    let mut miner_change_amount = 0.0;
+    
+ for output in vout.as_array().unwrap() {
+    let addr = output["scriptPubKey"]["address"].as_str().unwrap();
+    let amount = output["value"].as_f64().unwrap();
+        
+        if addr == trader_address.to_string() {
+            trader_output_address = addr;
+            trader_output_amount = amount;
+        } else {
+            miner_change_address = addr;
+            miner_change_amount = amount;
+        }
+    }
+    
+    // Write to out.txt 
+    let mut file = File::create("../out.txt")?;
+    writeln!(file, "{}", txid)?;
+    writeln!(file, "{}", miner_input_address)?;
+    writeln!(file, "{}", miner_input_amount)?;
+    writeln!(file, "{}", trader_output_address)?;
+    writeln!(file, "{}", trader_output_amount)?;
+    writeln!(file, "{}", miner_change_address)?;
+    writeln!(file, "{}", miner_change_amount)?;
+    writeln!(file, "{}", fee)?;
+    writeln!(file, "{}", block_height)?;
+    writeln!(file, "{}", block_hash)?;
+    
+    println!("\nTransaction details written to out.txt");
+
+
+
     Ok(())
 }
