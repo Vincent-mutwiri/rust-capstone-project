@@ -251,8 +251,8 @@ fn main() -> bitcoincore_rpc::Result<()> {
 
     // Write to out.txt
     let output_path = "../out.txt";
-    let mut file = File::create(output_path)
-        .expect(&format!("Failed to create output file at: {}", output_path));
+   let mut file = File::create(output_path)
+    .unwrap_or_else(|_| panic!("Failed to create output file at: {}", output_path));
 
     writeln!(file, "{}", txid)?;
     writeln!(file, "{}", miner_input_address)?;
