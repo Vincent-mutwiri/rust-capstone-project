@@ -1,3 +1,12 @@
+//! #Bitcoin Core RPC Capstone Project
+//! This program demonstrates the interaction with a Bitcoin core node in regtest mode.
+//! It performs the following operations:
+//! Create 2 wallets (Miner & Trader )
+//! Mines blocks to fund the Miner Wallet
+//! Sends the transcation from Miner to Trader
+//! Extracts and send the transaction details to out.txt 
+
+
 #![allow(unused)]
 use bitcoin::hex::DisplayHex;
 use bitcoincore_rpc::bitcoin::Amount;
@@ -8,8 +17,11 @@ use std::fs::File;
 use std::io::Write;
 
 // Node access params
+//Bitcoin regtest RPC endpoint 
 const RPC_URL: &str = "http://127.0.0.1:18443"; // Default regtest RPC port
+//RPC authetification username
 const RPC_USER: &str = "alice";
+//RPC authetification password
 const RPC_PASS: &str = "password";
 
 // You can use calls not provided in RPC lib API using the generic `call` function.
@@ -46,18 +58,26 @@ fn main() -> bitcoincore_rpc::Result<()> {
     // println!("Blockchain Info: {:?}", blockchain_info);
     println!("Connected to Bitcoin Core. Chain: {}", blockchain_info.chain);
 
+    println!("\n===Setting up wallets===");
+
+    //Handles 3 scenarios; when waleet doesn't exist, is not loaded and if loaded it connects to it
+
     // Create/Load the wallets, named 'Miner' and 'Trader'. Have logic to optionally create/load them if they do not exist or not loaded already.
         let miner_wallet = match rpc.create_wallet("Miner", None, None, None, None)
         {
             Ok(_)=> {
                 println!("Created Miner wallet");
-                Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()))?
+                Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()),
+            )
+            .expect("Failed to connect to Miner wallet after creation")
             }
-            Err(_) => {
+            Err(e) => {
                 //wallet exists, try to load it
                 let _ = rpc.load_wallet("Miner");
                 println!("Loaded existing Miner wallet");
-                Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()))?
+                Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()),
+            )
+            .expect("Failed to connect to Miner Wallet")
             }
         };
 
@@ -82,6 +102,7 @@ fn main() -> bitcoincore_rpc::Result<()> {
 
     let mining_address = miner_wallet.get_new_address(Some("Mining Reward"), None)?;
     println!("Mining address:{}",mining_address);
+    //Number of blocks to mine initially
 
     //Mine 101 blocks to the mining address
     //Blocks rewards in bitcoin require 100 confirmations(Maturity period)
