@@ -27,6 +27,10 @@ const RPC_PASS: &str = "password";
 // You can use calls not provided in RPC lib API using the generic `call` function.
 // An example of using the `send` RPC call, which doesn't have exposed API.
 // You can also use serde_json `Deserialize` derivation to capture the returned json result.
+//This function automatically:
+//selects the UTXOs (Unspent transaction outputs) as inputs
+//Creates outputs for recipient and change
+//Calculates transaction fees
 fn send(rpc: &Client, addr: &str, amount:f64) -> bitcoincore_rpc::Result<String> {
     let args = [
         json!([{addr : amount }]), // recipient address
@@ -52,7 +56,7 @@ fn main() -> bitcoincore_rpc::Result<()> {
         RPC_URL,
         Auth::UserPass(RPC_USER.to_owned(), RPC_PASS.to_owned()),
     )?;
-
+//wallet setup
     // Get blockchain info
     let blockchain_info = rpc.get_blockchain_info()?;
     // println!("Blockchain Info: {:?}", blockchain_info);
@@ -73,7 +77,17 @@ fn main() -> bitcoincore_rpc::Result<()> {
             }
             Err(e) => {
                 //wallet exists, try to load it
-                let _ = rpc.load_wallet("Miner");
+                // let _ = rpc.load_wallet("Miner");
+                match rpc.load_wallet("Miner"){
+                    Ok(_)=> println!("Loaded existing Miner wallet"),
+                    Err(e) => {
+                        if e.to_string().contains("already loaded"){
+                            println!("Miner wallet already loaded");
+                        }else {
+                            eprintln!("Warning: Could not load Miner wallet: {}", e);
+                        }
+                    }
+                }
                 println!("Loaded existing Miner wallet");
                 Client::new(&format!("{}/wallet/Miner",RPC_URL), Auth::UserPass(RPC_USER.to_owned(),RPC_PASS.to_owned()),
             )
@@ -108,8 +122,8 @@ fn main() -> bitcoincore_rpc::Result<()> {
     //Blocks rewards in bitcoin require 100 confirmations(Maturity period)
     //before they become spendable
     println!("Mining 101 blocks...");
-    let _blocks = miner_wallet.generate_to_address(101, &mining_address)?;
-    println!("Mined 101 blocks");
+    let _blocks = miner_wallet.generate_to_address(MATURITY_BLOCKS, &mining_address)?;
+    println!("Mined {} blocks (first block reward is now mature)", MATURITY_BLOCKS);
     
     //Get and print Miner wallet balance
 
@@ -121,6 +135,17 @@ fn main() -> bitcoincore_rpc::Result<()> {
 
 let trader_address = trader_wallet.get_new_address(Some("Received"),None)?;
 println!("Trader receiving address:{}", trader_address);
+
+//Verify sufficient balance before attempting to send
+
+let amount_to_send = 20.0;
+if balance.to_btc() < amount_to_send{
+    panic!(
+        "Insufficient balance! Have {} BTC, need {} BTC",
+        balance.to_btc(),
+        amount_to_send
+    );
+}
 
 //Send 20 BTC from Miner to Trader
 
@@ -146,21 +171,44 @@ println!("Transaction confirmed");
     
  // Extract basic info
     let decoded = &tx_details["decoded"];
-    let block_hash = tx_details["blockhash"].as_str().unwrap();
-    let block_height = tx_details["blockheight"].as_u64().unwrap();
-    let fee = tx_details["fee"].as_f64().unwrap().abs();
+   let block_hash = tx_details["blockhash"]
+    .as_str()
+    .expect("Transaction missing blockhash - was it confirmed?");
+
+    let block_height = tx_details["blockheight"]
+    .as_u64()
+    .expect("Transaction missing blockheight");
+
+    let fee = tx_details["fee"]
+    .as_f64()
+    .expect("Transaction missing fee information")
+    .abs();
+
     
     // Extract input details (vin)
     let vin = &decoded["vin"][0];
-    let input_txid = vin["txid"].as_str().unwrap();
-    let input_vout = vin["vout"].as_u64().unwrap();
+    let input_txid = vin["txid"]
+    .as_str()
+    .expect("Input missing txid");
+
+    let input_vout = vin["vout"]
+    .as_u64()
+    .expect("Input missing vout index");
+
     
     
 // Get the previous transaction to find input address and amount
     let prev_tx: serde_json::Value = miner_wallet.call("gettransaction", &[json!(input_txid), json!(null), json!(true)])?;
     let prev_vout = &prev_tx["decoded"]["vout"][input_vout as usize];
-    let miner_input_address = prev_vout["scriptPubKey"]["address"].as_str().unwrap();
-    let miner_input_amount = prev_vout["value"].as_f64().unwrap();
+let miner_input_address = prev_vout["scriptPubKey"]["address"]
+    .as_str()
+    .expect("Previous output missing address");
+
+
+    let miner_input_amount = prev_vout["value"]
+    .as_f64()
+    .expect("Previous output missing value");
+
     
     // Extract output details (vout)
     let vout = &decoded["vout"];
@@ -172,8 +220,16 @@ println!("Transaction confirmed");
     let mut miner_change_amount = 0.0;
     
  for output in vout.as_array().unwrap() {
-    let addr = output["scriptPubKey"]["address"].as_str().unwrap();
-    let amount = output["value"].as_f64().unwrap();
+    let addr = output["scriptPubKey"]["address"]
+    .as_str()
+    .expect("Output missing address");
+
+
+  let amount = output["value"]
+    .as_f64()
+    .expect("Output missing value");
+
+
         
         if addr == trader_address.to_string() {
             trader_output_address = addr;
@@ -185,7 +241,10 @@ println!("Transaction confirmed");
     }
     
     // Write to out.txt 
-    let mut file = File::create("../out.txt")?;
+let output_path = "../out.txt";
+let mut file = File::create(output_path)
+    .expect(&format!("Failed to create output file at: {}", output_path));
+
     writeln!(file, "{}", txid)?;
     writeln!(file, "{}", miner_input_address)?;
     writeln!(file, "{}", miner_input_amount)?;
