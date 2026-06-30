@@ -24,6 +24,8 @@ const RPC_USER: &str = "alice";
 //RPC authetification password
 const RPC_PASS: &str = "password";
 
+const MATURITY_BLOCKS:u64 = 101;
+
 // You can use calls not provided in RPC lib API using the generic `call` function.
 // An example of using the `send` RPC call, which doesn't have exposed API.
 // You can also use serde_json `Deserialize` derivation to capture the returned json result.
@@ -115,14 +117,14 @@ fn main() -> bitcoincore_rpc::Result<()> {
     //Generate new address in Miner wallet with label "Mining Reward"
 
     let mining_address = miner_wallet.get_new_address(Some("Mining Reward"), None)?;
-    println!("Mining address:{}",mining_address);
+    println!("Mining address:{}",mining_address.assume_checked());
     //Number of blocks to mine initially
 
     //Mine 101 blocks to the mining address
     //Blocks rewards in bitcoin require 100 confirmations(Maturity period)
     //before they become spendable
     println!("Mining 101 blocks...");
-    let _blocks = miner_wallet.generate_to_address(MATURITY_BLOCKS, &mining_address)?;
+    let _blocks = miner_wallet.generate_to_address(MATURITY_BLOCKS, &mining_address.assume_checked())?;
     println!("Mined {} blocks (first block reward is now mature)", MATURITY_BLOCKS);
     
     //Get and print Miner wallet balance
@@ -134,7 +136,7 @@ fn main() -> bitcoincore_rpc::Result<()> {
 //Generate new address in Trader wallet with label "Received"
 
 let trader_address = trader_wallet.get_new_address(Some("Received"),None)?;
-println!("Trader receiving address:{}", trader_address);
+println!("Trader receiving address:{}", trader_address.assume_checked());
 
 //Verify sufficient balance before attempting to send
 
@@ -149,7 +151,7 @@ if balance.to_btc() < amount_to_send{
 
 //Send 20 BTC from Miner to Trader
 
-let txid = send(&miner_wallet, &trader_address.to_string(), 20.0)?;
+let txid = send(&miner_wallet, &trader_address.assume_checked().to_string(), 20.0)?;
 
 
 println!("Transaction sent! TxID: {}", txid);
@@ -163,7 +165,7 @@ let mempool_entry: serde_json::Value = miner_wallet.call("getmempoolentry", &[js
 println!("Mempool entry: {:?}", mempool_entry);
 //Mine 1 block to confirm the transaction
 println!("\nMining 1 block to confirm transaction...");
-let _confirm_blocks = miner_wallet.generate_to_address(1, &mining_address)?;
+let _confirm_blocks = miner_wallet.generate_to_address(1, &mining_address.assume_checked())?;
 println!("Transaction confirmed");
 
  // Extract transaction details and write to out.txt
@@ -231,7 +233,7 @@ let miner_input_address = prev_vout["scriptPubKey"]["address"]
 
 
         
-        if addr == trader_address.to_string() {
+        if addr == trader_address.assume_checked().to_string() {
             trader_output_address = addr;
             trader_output_amount = amount;
         } else {
